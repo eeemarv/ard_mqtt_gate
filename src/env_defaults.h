@@ -64,6 +64,9 @@
 #ifndef PUB_TRIG_IN_PULSE
   #define PUB_TRIG_IN_PULSE "g/t/in/p"
 #endif
+#ifndef PUB_TRIG_IN_COUNT
+  #define PUB_TRIG_IN_COUNT "g/t/in/count"
+#endif
 
 #ifndef PUB_TRIG_OUT_DOWN
   #define PUB_TRIG_OUT_DOWN "g/t/out/d"
@@ -74,6 +77,9 @@
 #ifndef PUB_TRIG_OUT_PULSE
   #define PUB_TRIG_OUT_PULSE "g/t/out/p"
 #endif
+#ifndef PUB_TRIG_OUT_COUNT
+  #define PUB_TRIG_OUT_COUNT "g/t/out/count"
+#endif
 
 #ifndef PUB_TRIG_GRP_DOWN
   #define PUB_TRIG_GRP_DOWN "g/t/grp/d"
@@ -83,6 +89,9 @@
 #endif
 #ifndef PUB_TRIG_GRP_PULSE
   #define PUB_TRIG_GRP_PULSE "g/t/grp/p"
+#endif
+#ifndef PUB_TRIG_GRP_COUNT
+  #define PUB_TRIG_GRP_COUNT "g/t/grp/count"
 #endif
 
 #ifndef PUB_STAT_IN
@@ -101,14 +110,14 @@
 #ifndef SENS_FILTER_TIME
   #define SENS_FILTER_TIME 500
 #endif
-#ifndef PULSE_IN_VALID_TIME
-  #define PULSE_IN_VALID_TIME 5000
+#ifndef COUNT_IN_VALID_TIME
+  #define COUNT_IN_VALID_TIME 5000
 #endif
-#ifndef PULSE_OUT_VALID_TIME
-  #define PULSE_OUT_VALID_TIME 5000
+#ifndef COUNT_OUT_VALID_TIME
+  #define COUNT_OUT_VALID_TIME 5000
 #endif
-#ifndef PULSE_GRP_VALID_TIME
-  #define PULSE_GRP_VALID_TIME 5000
+#ifndef COUNT_GRP_VALID_TIME
+  #define COUNT_GRP_VALID_TIME 5000
 #endif
 
 #ifndef STAT_IN_TIME 

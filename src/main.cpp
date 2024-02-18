@@ -23,9 +23,9 @@ uint32_t sensInFilterTime = 0;
 uint32_t sensOutFilterTime = 0;
 uint32_t sensGrpFilterTime = 0;
 
-uint32_t pulseInValidUntil = 0;
-uint32_t pulseOutValidUntil = 0;
-uint32_t pulseGrpValidUntil = 0;
+uint32_t countInValidUntil = 0;
+uint32_t countOutValidUntil = 0;
+uint32_t countGrpValidUntil = 0;
 
 uint32_t upInCount = 0;
 uint32_t upOutCount = 0;
@@ -182,16 +182,19 @@ inline void sens(){
       PORT_FB |= B_FB_LED_IN;
       mqttClient.publish(PUB_TRIG_IN_UP, msg);
       upInCount++;
-      pulseInValidUntil = mt + PULSE_IN_VALID_TIME;
+      countInValidUntil = mt + COUNT_IN_VALID_TIME;
+      //
+      mqttClient.publish(PUB_TRIG_IN_PULSE, msg);
+      if (autoClose & B_SENS_IN){
+        CLOSE_IN;
+      }
+
     } else {
       lastSens &= ~B_SENS_IN;
       PORT_FB &= ~B_FB_LED_IN;
       mqttClient.publish(PUB_TRIG_IN_DOWN, msg);
-      if (mt < pulseInValidUntil){
-        mqttClient.publish(PUB_TRIG_IN_PULSE, msg);
-        if (autoClose & B_SENS_IN){
-          CLOSE_IN;
-        }
+      if (mt < countInValidUntil){
+        mqttClient.publish(PUB_TRIG_IN_COUNT, msg);
       }
     }
   }
@@ -205,13 +208,16 @@ inline void sens(){
       PORT_FB |= B_FB_LED_OUT;
       mqttClient.publish(PUB_TRIG_OUT_UP, msg);
       upOutCount++;
-      pulseOutValidUntil = mt + PULSE_OUT_VALID_TIME; 
+      countOutValidUntil = mt + COUNT_OUT_VALID_TIME; 
+
+      //
+      mqttClient.publish(PUB_TRIG_OUT_PULSE, msg);      
     } else {
       lastSens &= ~B_SENS_OUT;
       PORT_FB &= ~B_FB_LED_OUT;
       mqttClient.publish(PUB_TRIG_OUT_DOWN, msg);
-      if (mt < pulseOutValidUntil){
-        mqttClient.publish(PUB_TRIG_OUT_PULSE, msg);
+      if (mt < countOutValidUntil){
+        mqttClient.publish(PUB_TRIG_OUT_COUNT, msg);
       }    
     }
   }
@@ -225,16 +231,19 @@ inline void sens(){
       PORT_FB |= B_FB_LED_GRP;
       mqttClient.publish(PUB_TRIG_GRP_UP, msg);
       upGrpCount++;
-      pulseGrpValidUntil = mt + PULSE_GRP_VALID_TIME;
+      countGrpValidUntil = mt + COUNT_GRP_VALID_TIME;
+
+      //
+      mqttClient.publish(PUB_TRIG_GRP_PULSE, msg);
+      if (autoClose & B_SENS_GRP){
+        CLOSE_GRP;
+      }
     } else {
       lastSens &= ~B_SENS_GRP;
       PORT_FB &= ~B_FB_LED_GRP;
       mqttClient.publish(PUB_TRIG_GRP_DOWN, msg);
-      if (mt < pulseGrpValidUntil){
-        mqttClient.publish(PUB_TRIG_GRP_PULSE, msg);
-        if (autoClose & B_SENS_GRP){
-          CLOSE_GRP;
-        }
+      if (mt < countGrpValidUntil){
+        mqttClient.publish(PUB_TRIG_GRP_COUNT, msg);
       }
     } 
   }
