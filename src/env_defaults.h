@@ -55,50 +55,23 @@
   #define SUB_ONCE_GRP "g/once/grp"
 #endif
 
-#ifndef PUB_TRIG_IN_DOWN
-  #define PUB_TRIG_IN_DOWN "g/t/in/d"
-#endif
-#ifndef PUB_TRIG_IN_UP
-  #define PUB_TRIG_IN_UP "g/t/in/u"
-#endif
-#ifndef PUB_TRIG_IN_PULSE
-  #define PUB_TRIG_IN_PULSE "g/t/in/p"
-#endif
-#ifndef PUB_TRIG_IN_COUNT
-  #define PUB_TRIG_IN_COUNT "g/t/in/count"
+#ifndef PUB_SENS_IN
+  #define PUB_SENS_IN "g/sens/in"
 #endif
 
-#ifndef PUB_TRIG_OUT_DOWN
-  #define PUB_TRIG_OUT_DOWN "g/t/out/d"
-#endif
-#ifndef PUB_TRIG_OUT_UP
-  #define PUB_TRIG_OUT_UP "g/t/out/u"
-#endif
-#ifndef PUB_TRIG_OUT_PULSE
-  #define PUB_TRIG_OUT_PULSE "g/t/out/p"
-#endif
-#ifndef PUB_TRIG_OUT_COUNT
-  #define PUB_TRIG_OUT_COUNT "g/t/out/count"
+#ifndef PUB_SENS_OUT
+  #define PUB_SENS_OUT "g/sens/out"
 #endif
 
-#ifndef PUB_TRIG_GRP_DOWN
-  #define PUB_TRIG_GRP_DOWN "g/t/grp/d"
-#endif
-#ifndef PUB_TRIG_GRP_UP
-  #define PUB_TRIG_GRP_UP "g/t/grp/u"
-#endif
-#ifndef PUB_TRIG_GRP_PULSE
-  #define PUB_TRIG_GRP_PULSE "g/t/grp/p"
-#endif
-#ifndef PUB_TRIG_GRP_COUNT
-  #define PUB_TRIG_GRP_COUNT "g/t/grp/count"
+#ifndef PUB_SENS_GRP
+  #define PUB_SENS_GRP "g/sens/grp"
 #endif
 
 #ifndef PUB_STAT_IN
-  #define PUB_STAT_IN "g/s/in"
+  #define PUB_STAT_IN "g/stat/in"
 #endif
 #ifndef PUB_STAT_GRP
-  #define PUB_STAT_GRP "g/s/grp"
+  #define PUB_STAT_GRP "g/stat/grp"
 #endif
 #ifndef PUB_PRESENCE
   #define PUB_PRESENCE "g/p"
@@ -107,24 +80,16 @@
 #ifndef CLIENT_ID_PREFIX
   #define CLIENT_ID_PREFIX "g_"
 #endif
-#ifndef SENS_FILTER_TIME
-  #define SENS_FILTER_TIME 500
-#endif
-#ifndef COUNT_IN_VALID_TIME
-  #define COUNT_IN_VALID_TIME 5000
-#endif
-#ifndef COUNT_OUT_VALID_TIME
-  #define COUNT_OUT_VALID_TIME 5000
-#endif
-#ifndef COUNT_GRP_VALID_TIME
-  #define COUNT_GRP_VALID_TIME 5000
+
+#ifndef SENS_BlOCK_TIME
+  #define SENS_BLOCK_TIME 500
 #endif
 
 #ifndef STAT_IN_TIME 
-  #define STAT_IN_TIME 10000
+  #define STAT_IN_TIME 5000
 #endif
 #ifndef STAT_GRP_TIME 
-  #define STAT_GRP_TIME 10000
+  #define STAT_GRP_TIME 5000
 #endif
 #ifndef PRESENCE_TIME 
   #define PRESENCE_TIME 2000

@@ -12,29 +12,13 @@ const IPAddress mqttServerIp(MQTT_SERVER_IP);
 EthernetClient ethClient;
 PubSubClient mqttClient(ethClient);
 
-uint32_t mqttLastReconnectAttempt = 0;
+uint32_t mqttLastReconnectAttemptAt = 0;
 
 uint8_t blockSens = 0x00;
-uint32_t blockSensInUntil = 0;
-uint32_t blockSensOutUntil = 0;
-uint32_t blockSensGrpUntil = 0;
 
 uint32_t sensInBlockedAt;
 uint32_t sensOutBlockedAt;
 uint32_t sensGrpBlockedAt;
-
-uint32_t sensInFilterTime = 0;
-uint32_t sensOutFilterTime = 0;
-uint32_t sensGrpFilterTime = 0;
-
-uint32_t countInValidUntil = 0;
-uint32_t countOutValidUntil = 0;
-uint32_t countGrpValidUntil = 0;
-
-uint32_t upInCount = 0;
-uint32_t upOutCount = 0;
-uint32_t upGrpCount = 0;
-char msg[16];
 
 uint32_t lastPresenceAt = 0;
 uint32_t lastStatInAt = 0;
@@ -47,8 +31,12 @@ uint8_t lastSens;
 uint8_t newSens;
 
 uint8_t autoClose = 0x00;
-uint32_t inAutoCloseAt = 0;
-uint32_t grpAutoCloseAt = 0;
+
+uint32_t startAutoCloseInAt;
+uint32_t startAutoCloseGrpAt;
+
+uint32_t autoCloseInTime;
+uint32_t autoCloseGrpTime;
 
 #define SENS_MASK (B_SENS_IN | B_SENS_OUT | B_SENS_GRP)
 #define LED_MASK (B_FB_LED_IN | B_FB_LED_OUT | B_FB_LED_GRP)
@@ -59,11 +47,8 @@ uint32_t grpAutoCloseAt = 0;
   Watchdog watchdog;
 #endif
 
-#define PUBLISH_STAT_SET 0x01;
-#define PUBLISH_STAT_RESET 0x00;
-
-#define PUBLISH_STAT_IN publishStatIn = PUBLISH_STAT_SET;
-#define PUBLISH_STAT_GRP publishStatGrp = PUBLISH_STAT_SET;
+#define PUBLISH_STAT_IN publishStatIn = 0x01;
+#define PUBLISH_STAT_GRP publishStatGrp = 0x01;
 
 #define CLOSE_IN \
   PORT_FB &= ~B_FB_RLY_IN; \
@@ -85,15 +70,15 @@ uint32_t grpAutoCloseAt = 0;
   autoClose &= ~B_FB_RLY_GRP; \
   PUBLISH_STAT_GRP;
 
-uint32_t getAutoCloseTime(uint8_t* payload, unsigned int length){
+uint8_t getPayloadSec(uint8_t* payload, unsigned int length){
   uint8_t iii;
   uint8_t sec;
-    sec = 0;
-    for (iii = 0; iii < length; iii++){
-      sec *= 10;
-      sec += payload[iii] - '0';
-    }
-    return millis() + (sec * 1000);
+  sec = 0;
+  for (iii = 0; iii < length; iii++){
+    sec *= 10;
+    sec += payload[iii] - '0';
+  }
+  return sec;
 }
 
 void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
@@ -142,7 +127,8 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
       return;
     }
     OPEN_IN;
-    inAutoCloseAt = getAutoCloseTime(payload, length);
+    startAutoCloseInAt = millis();    
+    autoCloseInTime = getPayloadSec(payload, length) * 1000;
     autoClose |= B_FB_RLY_IN;
     return;
   }
@@ -152,28 +138,26 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
       return;
     }
     OPEN_GRP;
-    grpAutoCloseAt = getAutoCloseTime(payload, length);
+    startAutoCloseGrpAt = millis();
+    autoCloseGrpTime = getPayloadSec(payload, length) * 1000;
     autoClose |= B_FB_RLY_GRP;
     return;
   }
 }
 
 inline void sens(){
-  uint32_t mt;
   uint8_t sensDiff;
-
-  mt = millis();
 
   // release blocks
 
   if (blockSens){
-    if ((blockSens & B_SENS_IN) && (mt > blockSensInUntil)){
+    if ((blockSens & B_SENS_IN) && (millis() - sensInBlockedAt > SENS_BLOCK_TIME)){
       blockSens &= ~B_SENS_IN;
     }
-    if ((blockSens & B_SENS_OUT) && (mt > blockSensOutUntil)){
+    if ((blockSens & B_SENS_OUT) && (millis() - sensOutBlockedAt > SENS_BLOCK_TIME)){
       blockSens &= ~B_SENS_OUT;
     }
-    if ((blockSens & B_SENS_GRP) && (mt > blockSensGrpUntil)){
+    if ((blockSens & B_SENS_GRP) && (millis() - sensGrpBlockedAt > SENS_BLOCK_TIME)){
       blockSens &= ~B_SENS_GRP;
     }
   }
@@ -186,77 +170,51 @@ inline void sens(){
   }
 
   if (B_SENS_IN & sensDiff & ~blockSens){
+    // block new sens in
     blockSens |= B_SENS_IN;
-    blockSensInUntil = mt + SENS_FILTER_TIME;
-    itoa(upInCount, msg, 10);
+    sensInBlockedAt = millis();
+  
     if (newSens & B_SENS_IN){ // up 
       lastSens |= B_SENS_IN;
       PORT_FB |= B_FB_LED_IN;
-      mqttClient.publish(PUB_TRIG_IN_UP, msg);
-      upInCount++;
-      countInValidUntil = mt + COUNT_IN_VALID_TIME;
-      //
-      mqttClient.publish(PUB_TRIG_IN_PULSE, msg);
       if (autoClose & B_SENS_IN){
         CLOSE_IN;
-      }
-
+      }      
+      mqttClient.publish(PUB_SENS_IN, "1");
     } else { // down
       lastSens &= ~B_SENS_IN;
       PORT_FB &= ~B_FB_LED_IN;
-      mqttClient.publish(PUB_TRIG_IN_DOWN, msg);
-      if (mt < countInValidUntil){
-        mqttClient.publish(PUB_TRIG_IN_COUNT, msg);
-      }
     }
   }
 
   if (B_SENS_OUT & sensDiff & ~blockSens){
     blockSens |= B_SENS_OUT;
-    blockSensOutUntil = mt + SENS_FILTER_TIME;
-    itoa(upOutCount, msg, 10);
-    if (newSens & B_SENS_OUT){
+    sensOutBlockedAt = millis();
+
+    if (newSens & B_SENS_OUT){ //up 
       lastSens |= B_SENS_OUT;
       PORT_FB |= B_FB_LED_OUT;
-      mqttClient.publish(PUB_TRIG_OUT_UP, msg);
-      upOutCount++;
-      countOutValidUntil = mt + COUNT_OUT_VALID_TIME; 
-
-      //
-      mqttClient.publish(PUB_TRIG_OUT_PULSE, msg);      
+      mqttClient.publish(PUB_SENS_OUT, "1");     
     } else {
       lastSens &= ~B_SENS_OUT;
       PORT_FB &= ~B_FB_LED_OUT;
-      mqttClient.publish(PUB_TRIG_OUT_DOWN, msg);
-      if (mt < countOutValidUntil){
-        mqttClient.publish(PUB_TRIG_OUT_COUNT, msg);
-      }    
     }
   }
 
   if (B_SENS_GRP & sensDiff & ~blockSens){
     blockSens |= B_SENS_GRP;
-    blockSensGrpUntil = mt + SENS_FILTER_TIME;
-    itoa(upGrpCount, msg, 10);   
-    if (newSens & B_SENS_GRP){
+    sensGrpBlockedAt = millis();
+
+    if (newSens & B_SENS_GRP){ //up
       lastSens |= B_SENS_GRP;
       PORT_FB |= B_FB_LED_GRP;
-      mqttClient.publish(PUB_TRIG_GRP_UP, msg);
-      upGrpCount++;
-      countGrpValidUntil = mt + COUNT_GRP_VALID_TIME;
-
-      //
-      mqttClient.publish(PUB_TRIG_GRP_PULSE, msg);
       if (autoClose & B_SENS_GRP){
         CLOSE_GRP;
       }
+      mqttClient.publish(PUB_SENS_GRP, "1");
     } else {
       lastSens &= ~B_SENS_GRP;
       PORT_FB &= ~B_FB_LED_GRP;
-      mqttClient.publish(PUB_TRIG_GRP_DOWN, msg);
-      if (mt < countGrpValidUntil){
-        mqttClient.publish(PUB_TRIG_GRP_COUNT, msg);
-      }
     } 
   }
 }
@@ -341,8 +299,6 @@ void setup() {
 }
 
 void loop() {
-  uint32_t mt;
-
   #ifdef WATCHDOG_EN
     watchdog.reset();
   #endif
@@ -352,28 +308,26 @@ void loop() {
 
     sens();
 
-    mt = millis();
-
-    if (publishStatIn || (mt - lastStatInAt > STAT_IN_TIME)){
+    if (publishStatIn || (millis() - lastStatInAt > STAT_IN_TIME)){
       mqttClient.publish(PUB_STAT_IN, PORT_FB & B_FB_RLY_IN ? "open" : "closed");
-      lastStatInAt = mt;
-      publishStatIn = PUBLISH_STAT_RESET;
-    } else if (publishStatGrp || (mt - lastStatGrpAt > STAT_GRP_TIME)){
+      lastStatInAt = millis();
+      publishStatIn = 0x00;
+    } else if (publishStatGrp || (millis() - lastStatGrpAt > STAT_GRP_TIME)){
       mqttClient.publish(PUB_STAT_GRP, PORT_FB & B_FB_RLY_GRP ? "open" : "closed");
-      lastStatGrpAt = mt;
-      publishStatGrp = PUBLISH_STAT_RESET;
-    } else if (mt - lastPresenceAt > PRESENCE_TIME){
+      lastStatGrpAt = millis();
+      publishStatGrp = 0x00;
+    } else if (millis() - lastPresenceAt > PRESENCE_TIME){
       mqttClient.publish(PUB_PRESENCE, "1");
-      lastPresenceAt = mt;
+      lastPresenceAt = millis();
     }
 
     sens();
 
     if (autoClose){
-      if ((autoClose & B_FB_RLY_IN) && (inAutoCloseAt < mt)){
+      if ((autoClose & B_FB_RLY_IN) && (millis() - startAutoCloseInAt > autoCloseInTime)){
         CLOSE_IN;
       }
-      if ((autoClose & B_FB_RLY_GRP) && (grpAutoCloseAt < mt)){
+      if ((autoClose & B_FB_RLY_GRP) && (millis() - startAutoCloseGrpAt > autoCloseGrpTime)){
         CLOSE_GRP;
       }
     }
@@ -383,12 +337,11 @@ void loop() {
     mqttClient.loop();
   } else {
 
-    if (millis() - mqttLastReconnectAttempt > MQTT_CONNECT_RETRY_TIME) {
+    if (millis() - mqttLastReconnectAttemptAt > MQTT_CONNECT_RETRY_TIME) {
       if (mqttReconnect()) {
         #ifdef SERIAL_EN
           Serial.println("connected");
         #endif
-        mqttLastReconnectAttempt = 0;
       } else {
         #ifdef SERIAL_EN
           Serial.print("failed, rc=");
@@ -397,7 +350,7 @@ void loop() {
           Serial.print(MQTT_CONNECT_RETRY_TIME);
           Serial.println(" ms.");
         #endif
-        mqttLastReconnectAttempt = millis();
+        mqttLastReconnectAttemptAt = millis();
       }
     }
   }
