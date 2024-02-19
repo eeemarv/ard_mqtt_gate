@@ -14,10 +14,14 @@ PubSubClient mqttClient(ethClient);
 
 uint32_t mqttLastReconnectAttempt = 0;
 
-uint8_t blockTrig = 0x00;
-uint32_t blockTrigInUntil = 0;
-uint32_t blockTrigOutUntil = 0;
-uint32_t blockTrigGrpUntil = 0;
+uint8_t blockSens = 0x00;
+uint32_t blockSensInUntil = 0;
+uint32_t blockSensOutUntil = 0;
+uint32_t blockSensGrpUntil = 0;
+
+uint32_t sensInBlockedAt;
+uint32_t sensOutBlockedAt;
+uint32_t sensGrpBlockedAt;
 
 uint32_t sensInFilterTime = 0;
 uint32_t sensOutFilterTime = 0;
@@ -32,13 +36,15 @@ uint32_t upOutCount = 0;
 uint32_t upGrpCount = 0;
 char msg[16];
 
-uint32_t lastPresence = 0;
-uint32_t lastStatIn = 0;
-uint32_t lastStatGrp = 0;
+uint32_t lastPresenceAt = 0;
+uint32_t lastStatInAt = 0;
+uint32_t lastStatGrpAt = 0;
+
+uint8_t publishStatIn = 0x00;
+uint8_t publishStatGrp = 0x00;
 
 uint8_t lastSens;
 uint8_t newSens;
-uint8_t changedSens = 0x00;
 
 uint8_t autoClose = 0x00;
 uint32_t inAutoCloseAt = 0;
@@ -53,25 +59,31 @@ uint32_t grpAutoCloseAt = 0;
   Watchdog watchdog;
 #endif
 
-#define GET_IN lastStatIn = 0;
-#define GET_GRP lastStatGrp = 0;
+#define PUBLISH_STAT_SET 0x01;
+#define PUBLISH_STAT_RESET 0x00;
+
+#define PUBLISH_STAT_IN publishStatIn = PUBLISH_STAT_SET;
+#define PUBLISH_STAT_GRP publishStatGrp = PUBLISH_STAT_SET;
 
 #define CLOSE_IN \
   PORT_FB &= ~B_FB_RLY_IN; \
   autoClose &= ~B_FB_RLY_IN; \
-  GET_IN;
+  PUBLISH_STAT_IN;
+
 #define OPEN_IN \
   PORT_FB |= B_FB_RLY_IN; \
   autoClose &= ~B_FB_RLY_IN; \
-  GET_IN;
+  PUBLISH_STAT_IN;
+
 #define CLOSE_GRP \
   PORT_FB &= ~B_FB_RLY_GRP; \
   autoClose &= ~B_FB_RLY_GRP; \
-  GET_GRP;
+  PUBLISH_STAT_GRP;
+
 #define OPEN_GRP \
   PORT_FB |= B_FB_RLY_GRP; \
   autoClose &= ~B_FB_RLY_GRP; \
-  GET_GRP;
+  PUBLISH_STAT_GRP;
 
 uint32_t getAutoCloseTime(uint8_t* payload, unsigned int length){
   uint8_t iii;
@@ -96,12 +108,12 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
   #endif
 
   if (strcmp(topic, SUB_GET_IN) == 0){
-    GET_IN;
+    PUBLISH_STAT_IN;
     return;
   }
 
   if (strcmp(topic, SUB_GET_GRP) == 0){
-    GET_GRP;
+    PUBLISH_STAT_GRP;
     return;
   }
 
@@ -154,15 +166,15 @@ inline void sens(){
 
   // release blocks
 
-  if (blockTrig){
-    if ((blockTrig & B_SENS_IN) && (mt > blockTrigInUntil)){
-      blockTrig &= ~B_SENS_IN;
+  if (blockSens){
+    if ((blockSens & B_SENS_IN) && (mt > blockSensInUntil)){
+      blockSens &= ~B_SENS_IN;
     }
-    if ((blockTrig & B_SENS_OUT) && (mt > blockTrigOutUntil)){
-      blockTrig &= ~B_SENS_OUT;
+    if ((blockSens & B_SENS_OUT) && (mt > blockSensOutUntil)){
+      blockSens &= ~B_SENS_OUT;
     }
-    if ((blockTrig & B_SENS_GRP) && (mt > blockTrigGrpUntil)){
-      blockTrig &= ~B_SENS_GRP;
+    if ((blockSens & B_SENS_GRP) && (mt > blockSensGrpUntil)){
+      blockSens &= ~B_SENS_GRP;
     }
   }
 
@@ -173,11 +185,11 @@ inline void sens(){
     return;
   }
 
-  if (B_SENS_IN & sensDiff & ~blockTrig){
-    blockTrig |= B_SENS_IN;
-    blockTrigInUntil = mt + SENS_FILTER_TIME;
+  if (B_SENS_IN & sensDiff & ~blockSens){
+    blockSens |= B_SENS_IN;
+    blockSensInUntil = mt + SENS_FILTER_TIME;
     itoa(upInCount, msg, 10);
-    if (newSens & B_SENS_IN){
+    if (newSens & B_SENS_IN){ // up 
       lastSens |= B_SENS_IN;
       PORT_FB |= B_FB_LED_IN;
       mqttClient.publish(PUB_TRIG_IN_UP, msg);
@@ -189,7 +201,7 @@ inline void sens(){
         CLOSE_IN;
       }
 
-    } else {
+    } else { // down
       lastSens &= ~B_SENS_IN;
       PORT_FB &= ~B_FB_LED_IN;
       mqttClient.publish(PUB_TRIG_IN_DOWN, msg);
@@ -199,9 +211,9 @@ inline void sens(){
     }
   }
 
-  if (B_SENS_OUT & sensDiff & ~blockTrig){
-    blockTrig |= B_SENS_OUT;
-    blockTrigOutUntil = mt + SENS_FILTER_TIME;
+  if (B_SENS_OUT & sensDiff & ~blockSens){
+    blockSens |= B_SENS_OUT;
+    blockSensOutUntil = mt + SENS_FILTER_TIME;
     itoa(upOutCount, msg, 10);
     if (newSens & B_SENS_OUT){
       lastSens |= B_SENS_OUT;
@@ -222,9 +234,9 @@ inline void sens(){
     }
   }
 
-  if (B_SENS_GRP & sensDiff & ~blockTrig){
-    blockTrig |= B_SENS_GRP;
-    blockTrigGrpUntil = mt + SENS_FILTER_TIME;
+  if (B_SENS_GRP & sensDiff & ~blockSens){
+    blockSens |= B_SENS_GRP;
+    blockSensGrpUntil = mt + SENS_FILTER_TIME;
     itoa(upGrpCount, msg, 10);   
     if (newSens & B_SENS_GRP){
       lastSens |= B_SENS_GRP;
@@ -342,15 +354,17 @@ void loop() {
 
     mt = millis();
 
-    if (mt - lastStatIn > STAT_IN_TIME){
+    if (publishStatIn || (mt - lastStatInAt > STAT_IN_TIME)){
       mqttClient.publish(PUB_STAT_IN, PORT_FB & B_FB_RLY_IN ? "open" : "closed");
-      lastStatIn = mt;
-    } else if (mt - lastStatGrp > STAT_GRP_TIME){
+      lastStatInAt = mt;
+      publishStatIn = PUBLISH_STAT_RESET;
+    } else if (publishStatGrp || (mt - lastStatGrpAt > STAT_GRP_TIME)){
       mqttClient.publish(PUB_STAT_GRP, PORT_FB & B_FB_RLY_GRP ? "open" : "closed");
-      lastStatGrp = mt;
-    } else if (mt - lastPresence > PRESENCE_TIME){
+      lastStatGrpAt = mt;
+      publishStatGrp = PUBLISH_STAT_RESET;
+    } else if (mt - lastPresenceAt > PRESENCE_TIME){
       mqttClient.publish(PUB_PRESENCE, "1");
-      lastPresence = mt;
+      lastPresenceAt = mt;
     }
 
     sens();
