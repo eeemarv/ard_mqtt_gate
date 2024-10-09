@@ -237,7 +237,7 @@ inline void sens(){
       lastSens &= ~B_SENS_GRP;
       PORT_FB &= ~B_FB_LED_GRP;
 
-      #ifdef SENS_GRP_INVERTED
+      #ifndef SENS_GRP_INVERTED
         if (autoClose & B_SENS_GRP){
           CLOSE_GRP;
         }
@@ -270,6 +270,7 @@ bool mqttReconnect() {
 }
 
 void setup() {
+
   delay(250);
 
   // GPIO inputs
@@ -330,6 +331,7 @@ void loop() {
   #ifdef WATCHDOG_EN
     watchdog.reset();
   #endif
+
   Ethernet.maintain();
 
   if (mqttClient.connected()) {

@@ -82,7 +82,7 @@
 #endif
 
 #ifndef SENS_BlOCK_TIME
-  #define SENS_BLOCK_TIME 500
+  #define SENS_BLOCK_TIME 400
 #endif
 
 #ifndef STAT_IN_TIME
