@@ -127,7 +127,7 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
       return;
     }
     OPEN_IN;
-    startAutoCloseInAt = millis();    
+    startAutoCloseInAt = millis();
     autoCloseInTime = getPayloadSec(payload, length) * 1000;
     autoClose |= B_FB_RLY_IN;
     return;
@@ -173,17 +173,27 @@ inline void sens(){
     // block new sens in
     blockSens |= B_SENS_IN;
     sensInBlockedAt = millis();
-  
-    if (newSens & B_SENS_IN){ // up 
+
+    if (newSens & B_SENS_IN){ // up
       lastSens |= B_SENS_IN;
       PORT_FB |= B_FB_LED_IN;
-      if (autoClose & B_SENS_IN){
-        CLOSE_IN;
-      }      
-      mqttClient.publish(PUB_SENS_IN, "1");
+
+      #ifdef SENS_IN_INVERTED
+        if (autoClose & B_SENS_IN){
+          CLOSE_IN;
+        }
+        mqttClient.publish(PUB_SENS_IN, "1");
+      #endif
     } else { // down
       lastSens &= ~B_SENS_IN;
       PORT_FB &= ~B_FB_LED_IN;
+
+      #ifndef SENS_IN_INVERTED
+        if (autoClose & B_SENS_IN){
+          CLOSE_IN;
+        }
+        mqttClient.publish(PUB_SENS_IN, "1");
+      #endif
     }
   }
 
@@ -191,13 +201,20 @@ inline void sens(){
     blockSens |= B_SENS_OUT;
     sensOutBlockedAt = millis();
 
-    if (newSens & B_SENS_OUT){ //up 
+    if (newSens & B_SENS_OUT){ //up
       lastSens |= B_SENS_OUT;
       PORT_FB |= B_FB_LED_OUT;
-      mqttClient.publish(PUB_SENS_OUT, "1");     
+
+      #ifdef SENS_OUT_INVERTED
+        mqttClient.publish(PUB_SENS_OUT, "1");
+      #endif
     } else {
       lastSens &= ~B_SENS_OUT;
       PORT_FB &= ~B_FB_LED_OUT;
+
+      #ifndef SENS_OUT_INVERTED
+        mqttClient.publish(PUB_SENS_OUT, "1");
+      #endif
     }
   }
 
@@ -208,14 +225,25 @@ inline void sens(){
     if (newSens & B_SENS_GRP){ //up
       lastSens |= B_SENS_GRP;
       PORT_FB |= B_FB_LED_GRP;
-      if (autoClose & B_SENS_GRP){
-        CLOSE_GRP;
-      }
-      mqttClient.publish(PUB_SENS_GRP, "1");
+
+      #ifdef SENS_GRP_INVERTED
+        if (autoClose & B_SENS_GRP){
+          CLOSE_GRP;
+        }
+        mqttClient.publish(PUB_SENS_GRP, "1");
+      #endif
+
     } else {
       lastSens &= ~B_SENS_GRP;
       PORT_FB &= ~B_FB_LED_GRP;
-    } 
+
+      #ifdef SENS_GRP_INVERTED
+        if (autoClose & B_SENS_GRP){
+          CLOSE_GRP;
+        }
+        mqttClient.publish(PUB_SENS_GRP, "1");
+      #endif
+    }
   }
 }
 

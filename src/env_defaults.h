@@ -1,9 +1,9 @@
 #include <Arduino.h>
 
 /*
-* definitions that 
+* definitions that
 * can be changed
-* in .env.h 
+* in .env.h
 */
 
 #ifndef MAC_4_LAST
@@ -12,7 +12,7 @@
 #ifndef SELF_IP
   #define SELF_IP 192, 168, 0, 60
 #endif
-#ifndef ETH_CS_PIN 
+#ifndef ETH_CS_PIN
   #define ETH_CS_PIN 10
 #endif
 #ifndef MQTT_SERVER_IP
@@ -24,7 +24,7 @@
 #ifndef MQTT_CONNECT_RETRY_TIME
   #define MQTT_CONNECT_RETRY_TIME 5000
 #endif
-#ifndef SERIAL_BAUD 
+#ifndef SERIAL_BAUD
   #define SERIAL_BAUD 9600
 #endif
 
@@ -37,10 +37,10 @@
 
 #ifndef SUB_OPEN_IN
   #define SUB_OPEN_IN "g/open/in"
-#endif 
+#endif
 #ifndef SUB_CLOSE_IN
   #define SUB_CLOSE_IN "g/close/in"
-#endif 
+#endif
 #ifndef SUB_OPEN_GRP
   #define SUB_OPEN_GRP "g/open/grp"
 #endif
@@ -48,7 +48,7 @@
   #define SUB_CLOSE_GRP "g/close/grp"
 #endif
 
-#ifndef SUB_ONCE_IN 
+#ifndef SUB_ONCE_IN
   #define SUB_ONCE_IN "g/once/in"
 #endif
 #ifndef SUB_ONCE_GRP
@@ -85,13 +85,13 @@
   #define SENS_BLOCK_TIME 500
 #endif
 
-#ifndef STAT_IN_TIME 
-  #define STAT_IN_TIME 5000
+#ifndef STAT_IN_TIME
+  #define STAT_IN_TIME 2000
 #endif
-#ifndef STAT_GRP_TIME 
-  #define STAT_GRP_TIME 5000
+#ifndef STAT_GRP_TIME
+  #define STAT_GRP_TIME 2000
 #endif
-#ifndef PRESENCE_TIME 
+#ifndef PRESENCE_TIME
   #define PRESENCE_TIME 2000
 #endif
 
