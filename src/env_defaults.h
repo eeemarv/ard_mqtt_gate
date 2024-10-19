@@ -82,17 +82,17 @@
 #endif
 
 #ifndef SENS_BlOCK_TIME
-  #define SENS_BLOCK_TIME 400
+  #define SENS_BLOCK_TIME 500
 #endif
 
 #ifndef STAT_IN_TIME
-  #define STAT_IN_TIME 2000
+  #define STAT_IN_TIME 10000
 #endif
 #ifndef STAT_GRP_TIME
-  #define STAT_GRP_TIME 2000
+  #define STAT_GRP_TIME 10222
 #endif
 #ifndef PRESENCE_TIME
-  #define PRESENCE_TIME 2000
+  #define PRESENCE_TIME 10444
 #endif
 
 #ifndef PORT_SENS
