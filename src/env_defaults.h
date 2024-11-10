@@ -81,10 +81,6 @@
   #define CLIENT_ID_PREFIX "g_"
 #endif
 
-#ifndef SENS_BlOCK_TIME
-  #define SENS_BLOCK_TIME 500
-#endif
-
 #ifndef STAT_IN_TIME
   #define STAT_IN_TIME 10000
 #endif
@@ -100,6 +96,7 @@
   #define DDR_SENS DDRD
   #define PIN_SENS PIND
 #endif
+
 #ifndef B_SENS_IN
   #define B_SENS_IN B00000100
 #endif
@@ -131,6 +128,10 @@
   #define B_FB_RLY_GRP B00100000
 #endif
 
-#ifndef FILTER_COUNT_START
-  #define FILTER_COUNT_START 255
+#ifndef FILTER_RELEASE_STEPS
+  #define FILTER_RELEASE_STEPS 255
+#endif
+
+#ifndef FILTER_ATTACK_STEPS
+  #define FILTER_ATTACK_STEPS 255
 #endif

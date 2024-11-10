@@ -29,9 +29,15 @@ uint32_t startAutoCloseGrpAt;
 uint32_t autoCloseInTime;
 uint32_t autoCloseGrpTime;
 
-uint8_t filterCountIn = FILTER_COUNT_START;
-uint8_t filterCountOut = FILTER_COUNT_START;
-uint8_t filterCountGrp = FILTER_COUNT_START;
+uint8_t filterReleaseIn = FILTER_RELEASE_STEPS;
+uint8_t filterReleaseOut = FILTER_RELEASE_STEPS;
+uint8_t filterReleaseGrp = FILTER_RELEASE_STEPS;
+uint8_t filterAttackIn = FILTER_ATTACK_STEPS;
+uint8_t filterAttackOut = FILTER_ATTACK_STEPS;
+uint8_t filterAttackGrp = FILTER_ATTACK_STEPS;
+uint8_t runAttackIn = 0x00;
+uint8_t runAttackOut = 0x00;
+uint8_t runAttackGrp = 0x00;
 
 #define SENS_MASK (B_SENS_IN | B_SENS_OUT | B_SENS_GRP)
 #define LED_MASK (B_FB_LED_IN | B_FB_LED_OUT | B_FB_LED_GRP)
@@ -141,52 +147,91 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
 }
 
 inline void sens(){
-  if (filterCountIn){
-    filterCountIn--;
-    PORT_FB &= ~B_FB_LED_IN;
+  if (filterReleaseIn){
+    filterReleaseIn--;
   } else {
     PORT_FB |= B_FB_LED_IN;
   }
 
-  if (!(PIN_SENS & B_SENS_IN)){
-    if (!filterCountIn){
+  if (PIN_SENS & B_SENS_IN){
+    runAttackIn = 0x00;
+  } else {
+    if (!filterReleaseIn){
+      runAttackIn = 0xff;
+      filterAttackIn = FILTER_ATTACK_STEPS;
+    }
+    filterReleaseIn = FILTER_RELEASE_STEPS;
+  }
+
+  if (runAttackIn){
+    filterAttackIn--;
+    if (!filterAttackIn){
+      runAttackIn = 0x00;
+
       if (autoClose & B_SENS_IN){
         CLOSE_IN;
       }
       mqttClient.publish(PUB_SENS_IN, "1");
+      PORT_FB &= ~B_FB_LED_IN;
     }
-    filterCountIn = FILTER_COUNT_START;
   }
 
-  if (filterCountOut){
-    PORT_FB &= ~B_FB_LED_OUT;
-    filterCountOut--;
+  ///
+
+  if (filterReleaseOut){
+    filterReleaseOut--;
   } else {
     PORT_FB |= B_FB_LED_OUT;
   }
 
-  if (!(PIN_SENS & B_SENS_OUT)){
-    if (!filterCountOut){
-      mqttClient.publish(PUB_SENS_OUT, "1");
+  if (PIN_SENS & B_SENS_OUT){
+    runAttackOut = 0x00;
+  } else {
+    if (!filterReleaseOut){
+      runAttackOut = 0xff;
+      filterAttackOut = FILTER_ATTACK_STEPS;
     }
-    filterCountOut = FILTER_COUNT_START;
+    filterReleaseOut = FILTER_RELEASE_STEPS;
   }
 
-  if (filterCountGrp){
-    filterCountGrp--;
-    PORT_FB &= ~B_FB_LED_GRP;
+  if (runAttackOut){
+    filterAttackOut--;
+    if (!filterAttackOut){
+      runAttackOut = 0x00;
+      mqttClient.publish(PUB_SENS_OUT, "1");
+      PORT_FB &= ~B_FB_LED_OUT;
+    }
+  }
+
+  ////
+
+  if (filterReleaseGrp){
+    filterReleaseGrp--;
   } else {
     PORT_FB |= B_FB_LED_GRP;
   }
 
-  if (!(PIN_SENS & B_SENS_GRP)){
-    if (!filterCountGrp){
+  if (PIN_SENS & B_SENS_GRP){
+    runAttackGrp = 0x00;
+  } else {
+    if (!filterReleaseGrp){
+      runAttackGrp = 0xff;
+      filterAttackGrp = FILTER_ATTACK_STEPS;
+    }
+    filterReleaseGrp = FILTER_RELEASE_STEPS;
+  }
+
+  if (runAttackGrp){
+    filterAttackGrp--;
+    if (!filterAttackGrp){
+      runAttackGrp = 0x00;
+
       if (autoClose & B_SENS_GRP){
         CLOSE_GRP;
       }
       mqttClient.publish(PUB_SENS_GRP, "1");
+      PORT_FB &= ~B_FB_LED_GRP;
     }
-    filterCountGrp = FILTER_COUNT_START;
   }
 }
 
