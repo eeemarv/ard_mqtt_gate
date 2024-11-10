@@ -14,21 +14,12 @@ PubSubClient mqttClient(ethClient);
 
 uint32_t mqttLastReconnectAttemptAt = 0;
 
-uint8_t blockSens = 0x00;
-
-uint32_t sensInBlockedAt;
-uint32_t sensOutBlockedAt;
-uint32_t sensGrpBlockedAt;
-
 uint32_t lastPresenceAt = 0;
 uint32_t lastStatInAt = 0;
 uint32_t lastStatGrpAt = 0;
 
 uint8_t publishStatIn = 0x00;
 uint8_t publishStatGrp = 0x00;
-
-uint8_t lastSens;
-uint8_t newSens;
 
 uint8_t autoClose = 0x00;
 
@@ -37,6 +28,10 @@ uint32_t startAutoCloseGrpAt;
 
 uint32_t autoCloseInTime;
 uint32_t autoCloseGrpTime;
+
+uint8_t filterCountIn = FILTER_COUNT_START;
+uint8_t filterCountOut = FILTER_COUNT_START;
+uint8_t filterCountGrp = FILTER_COUNT_START;
 
 #define SENS_MASK (B_SENS_IN | B_SENS_OUT | B_SENS_GRP)
 #define LED_MASK (B_FB_LED_IN | B_FB_LED_OUT | B_FB_LED_GRP)
@@ -146,104 +141,52 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
 }
 
 inline void sens(){
-  uint8_t sensDiff;
-
-  // release blocks
-
-  if (blockSens){
-    if ((blockSens & B_SENS_IN) && (millis() - sensInBlockedAt > SENS_BLOCK_TIME)){
-      blockSens &= ~B_SENS_IN;
-    }
-    if ((blockSens & B_SENS_OUT) && (millis() - sensOutBlockedAt > SENS_BLOCK_TIME)){
-      blockSens &= ~B_SENS_OUT;
-    }
-    if ((blockSens & B_SENS_GRP) && (millis() - sensGrpBlockedAt > SENS_BLOCK_TIME)){
-      blockSens &= ~B_SENS_GRP;
-    }
+  if (filterCountIn){
+    filterCountIn--;
+    PORT_FB &= ~B_FB_LED_IN;
+  } else {
+    PORT_FB |= B_FB_LED_IN;
   }
 
-  newSens = PIN_SENS & SENS_MASK;
-  sensDiff = newSens^lastSens;
-
-  if (!sensDiff){
-    return;
+  if (!(PIN_SENS & B_SENS_IN)){
+    if (!filterCountIn){
+      if (autoClose & B_SENS_IN){
+        CLOSE_IN;
+      }
+      mqttClient.publish(PUB_SENS_IN, "1");
+    }
+    filterCountIn = FILTER_COUNT_START;
   }
 
-  if (B_SENS_IN & sensDiff & ~blockSens){
-    // block new sens in
-    blockSens |= B_SENS_IN;
-    sensInBlockedAt = millis();
-
-    if (newSens & B_SENS_IN){ // up
-      lastSens |= B_SENS_IN;
-      PORT_FB |= B_FB_LED_IN;
-
-      #ifdef SENS_IN_INVERTED
-        if (autoClose & B_SENS_IN){
-          CLOSE_IN;
-        }
-        mqttClient.publish(PUB_SENS_IN, "1");
-      #endif
-    } else { // down
-      lastSens &= ~B_SENS_IN;
-      PORT_FB &= ~B_FB_LED_IN;
-
-      #ifndef SENS_IN_INVERTED
-        if (autoClose & B_SENS_IN){
-          CLOSE_IN;
-        }
-        mqttClient.publish(PUB_SENS_IN, "1");
-      #endif
-    }
+  if (filterCountOut){
+    PORT_FB &= ~B_FB_LED_OUT;
+    filterCountOut--;
+  } else {
+    PORT_FB |= B_FB_LED_OUT;
   }
 
-  if (B_SENS_OUT & sensDiff & ~blockSens){
-    blockSens |= B_SENS_OUT;
-    sensOutBlockedAt = millis();
-
-    if (newSens & B_SENS_OUT){ //up
-      lastSens |= B_SENS_OUT;
-      PORT_FB |= B_FB_LED_OUT;
-
-      #ifdef SENS_OUT_INVERTED
-        mqttClient.publish(PUB_SENS_OUT, "1");
-      #endif
-    } else {
-      lastSens &= ~B_SENS_OUT;
-      PORT_FB &= ~B_FB_LED_OUT;
-
-      #ifndef SENS_OUT_INVERTED
-        mqttClient.publish(PUB_SENS_OUT, "1");
-      #endif
+  if (!(PIN_SENS & B_SENS_OUT)){
+    if (!filterCountOut){
+      mqttClient.publish(PUB_SENS_OUT, "1");
     }
+    filterCountOut = FILTER_COUNT_START;
   }
 
-  if (B_SENS_GRP & sensDiff & ~blockSens){
-    blockSens |= B_SENS_GRP;
-    sensGrpBlockedAt = millis();
+  if (filterCountGrp){
+    filterCountGrp--;
+    PORT_FB &= ~B_FB_LED_GRP;
+  } else {
+    PORT_FB |= B_FB_LED_GRP;
+  }
 
-    if (newSens & B_SENS_GRP){ //up
-      lastSens |= B_SENS_GRP;
-      PORT_FB |= B_FB_LED_GRP;
-
-      #ifdef SENS_GRP_INVERTED
-        if (autoClose & B_SENS_GRP){
-          CLOSE_GRP;
-        }
-        mqttClient.publish(PUB_SENS_GRP, "1");
-      #endif
-
-    } else {
-      lastSens &= ~B_SENS_GRP;
-      PORT_FB &= ~B_FB_LED_GRP;
-
-      #ifndef SENS_GRP_INVERTED
-        if (autoClose & B_SENS_GRP){
-          CLOSE_GRP;
-        }
-        mqttClient.publish(PUB_SENS_GRP, "1");
-      #endif
+  if (!(PIN_SENS & B_SENS_GRP)){
+    if (!filterCountGrp){
+      if (autoClose & B_SENS_GRP){
+        CLOSE_GRP;
+      }
+      mqttClient.publish(PUB_SENS_GRP, "1");
     }
+    filterCountGrp = FILTER_COUNT_START;
   }
 }
 
@@ -296,8 +239,6 @@ void setup() {
   delay(500);
 
   PORT_FB |= LED_MASK; // switch off LEDS
-  lastSens = PIN_SENS & SENS_MASK;
-  newSens = lastSens;
 
   delay(1000);
 

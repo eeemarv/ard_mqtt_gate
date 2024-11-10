@@ -130,3 +130,7 @@
 #ifndef B_FB_RLY_GRP
   #define B_FB_RLY_GRP B00100000
 #endif
+
+#ifndef FILTER_COUNT_START
+  #define FILTER_COUNT_START 255
+#endif
