@@ -82,10 +82,10 @@
 #endif
 
 #ifndef STAT_IN_TIME
-  #define STAT_IN_TIME 10000
+  #define STAT_IN_TIME 60000
 #endif
 #ifndef STAT_GRP_TIME
-  #define STAT_GRP_TIME 10222
+  #define STAT_GRP_TIME 62222
 #endif
 #ifndef PRESENCE_TIME
   #define PRESENCE_TIME 10444
@@ -129,9 +129,9 @@
 #endif
 
 #ifndef FILTER_RELEASE_STEPS
-  #define FILTER_RELEASE_STEPS 255
+  #define FILTER_RELEASE_STEPS 32640
 #endif
 
 #ifndef FILTER_ATTACK_STEPS
-  #define FILTER_ATTACK_STEPS 255
+  #define FILTER_ATTACK_STEPS 2048
 #endif

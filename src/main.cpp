@@ -21,20 +21,21 @@ uint32_t lastStatGrpAt = 0;
 uint8_t publishStatIn = 0x00;
 uint8_t publishStatGrp = 0x00;
 
-uint8_t autoClose = 0x00;
-
 uint32_t startAutoCloseInAt;
 uint32_t startAutoCloseGrpAt;
 
 uint32_t autoCloseInTime;
 uint32_t autoCloseGrpTime;
 
-uint8_t filterReleaseIn = FILTER_RELEASE_STEPS;
-uint8_t filterReleaseOut = FILTER_RELEASE_STEPS;
-uint8_t filterReleaseGrp = FILTER_RELEASE_STEPS;
-uint8_t filterAttackIn = FILTER_ATTACK_STEPS;
-uint8_t filterAttackOut = FILTER_ATTACK_STEPS;
-uint8_t filterAttackGrp = FILTER_ATTACK_STEPS;
+uint8_t runAutoCloseIn = 0x00;
+uint8_t runAutoCloseGrp = 0x00;
+
+uint16_t filterReleaseIn = FILTER_RELEASE_STEPS;
+uint16_t filterReleaseOut = FILTER_RELEASE_STEPS;
+uint16_t filterReleaseGrp = FILTER_RELEASE_STEPS;
+uint16_t filterAttackIn = FILTER_ATTACK_STEPS;
+uint16_t filterAttackOut = FILTER_ATTACK_STEPS;
+uint16_t filterAttackGrp = FILTER_ATTACK_STEPS;
 uint8_t runAttackIn = 0x00;
 uint8_t runAttackOut = 0x00;
 uint8_t runAttackGrp = 0x00;
@@ -48,27 +49,27 @@ uint8_t runAttackGrp = 0x00;
   Watchdog watchdog;
 #endif
 
-#define PUBLISH_STAT_IN publishStatIn = 0x01;
-#define PUBLISH_STAT_GRP publishStatGrp = 0x01;
+#define PUBLISH_STAT_IN publishStatIn = 0xff;
+#define PUBLISH_STAT_GRP publishStatGrp = 0xff;
 
 #define CLOSE_IN \
   PORT_FB &= ~B_FB_RLY_IN; \
-  autoClose &= ~B_FB_RLY_IN; \
+  runAutoCloseIn = 0x00; \
   PUBLISH_STAT_IN;
 
 #define OPEN_IN \
   PORT_FB |= B_FB_RLY_IN; \
-  autoClose &= ~B_FB_RLY_IN; \
+  runAutoCloseIn = 0x00; \
   PUBLISH_STAT_IN;
 
 #define CLOSE_GRP \
   PORT_FB &= ~B_FB_RLY_GRP; \
-  autoClose &= ~B_FB_RLY_GRP; \
+  runAutoCloseGrp = 0x00; \
   PUBLISH_STAT_GRP;
 
 #define OPEN_GRP \
   PORT_FB |= B_FB_RLY_GRP; \
-  autoClose &= ~B_FB_RLY_GRP; \
+  runAutoCloseGrp = 0x00; \
   PUBLISH_STAT_GRP;
 
 uint8_t getPayloadSec(uint8_t* payload, unsigned int length){
@@ -130,7 +131,7 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
     OPEN_IN;
     startAutoCloseInAt = millis();
     autoCloseInTime = getPayloadSec(payload, length) * 1000;
-    autoClose |= B_FB_RLY_IN;
+    runAutoCloseIn = 0xff;
     return;
   }
 
@@ -141,7 +142,7 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
     OPEN_GRP;
     startAutoCloseGrpAt = millis();
     autoCloseGrpTime = getPayloadSec(payload, length) * 1000;
-    autoClose |= B_FB_RLY_GRP;
+    runAutoCloseGrp = 0xff;
     return;
   }
 }
@@ -168,10 +169,16 @@ inline void sens(){
     if (!filterAttackIn){
       runAttackIn = 0x00;
 
-      if (autoClose & B_SENS_IN){
+      if (runAutoCloseIn){
         CLOSE_IN;
       }
+      #ifdef ETH_EN
       mqttClient.publish(PUB_SENS_IN, "1");
+      #endif
+      #ifdef SERIAL_EN
+      Serial.print(PUB_SENS_IN);
+      Serial.println(": 1");
+      #endif
       PORT_FB &= ~B_FB_LED_IN;
     }
   }
@@ -198,7 +205,13 @@ inline void sens(){
     filterAttackOut--;
     if (!filterAttackOut){
       runAttackOut = 0x00;
+      #ifdef ETH_EN
       mqttClient.publish(PUB_SENS_OUT, "1");
+      #endif
+      #ifdef SERIAL_EN
+      Serial.print(PUB_SENS_OUT);
+      Serial.println(": 1");
+      #endif
       PORT_FB &= ~B_FB_LED_OUT;
     }
   }
@@ -226,10 +239,16 @@ inline void sens(){
     if (!filterAttackGrp){
       runAttackGrp = 0x00;
 
-      if (autoClose & B_SENS_GRP){
+      if (runAutoCloseGrp){
         CLOSE_GRP;
       }
+      #ifdef ETH_EN
       mqttClient.publish(PUB_SENS_GRP, "1");
+      #endif
+      #ifdef SERIAL_EN
+      Serial.print(PUB_SENS_GRP);
+      Serial.println(": 1");
+      #endif
       PORT_FB &= ~B_FB_LED_GRP;
     }
   }
@@ -257,22 +276,78 @@ bool mqttReconnect() {
   return mqttClient.connected();
 }
 
+inline void readCommandFromSerial() {
+  char ch;
+  if (!Serial.available()){
+    return;
+  }
+  ch = Serial.read();
+
+  switch (ch){
+    case '2':
+      Serial.println("cmd 2 publish stat in");
+      PUBLISH_STAT_IN;
+      break;
+    case '3':
+      Serial.println("cmd 3 publish stat grp");
+      PUBLISH_STAT_GRP;
+      break;
+    case '4':
+      Serial.println("cmd 4 open grp");
+      OPEN_GRP;
+      break;
+    case '5':
+      Serial.println("cmd 5 close grp");
+      CLOSE_GRP;
+      break;
+    case '6':
+      Serial.println("cmd 6 open once grp 14 sec");
+      OPEN_GRP;
+      startAutoCloseGrpAt = millis();
+      autoCloseGrpTime = 14000;
+      runAutoCloseGrp = 0xff;
+      break;
+    case '7':
+      Serial.println("cmd 7 open in");
+      OPEN_IN;
+      break;
+    case '8':
+      Serial.println("cmd 8 close in");
+      CLOSE_IN;
+      break;
+    case '9':
+      Serial.println("cmd 9 once in 14 sec");
+      OPEN_IN;
+      startAutoCloseInAt = millis();
+      autoCloseInTime = 14000;
+      runAutoCloseIn = 0xff;
+      break;
+    default:
+      Serial.println("cmd not found");
+      break;
+  }
+  return;
+}
+
 void setup() {
 
   delay(250);
 
   // GPIO inputs
+  PORT_SENS |= SENS_MASK; // weak pull-up
   DDR_SENS &= ~SENS_MASK;
   // GPIO outputs
   PORT_FB &= ~LED_MASK;
   PORT_FB |= RLY_MASK;
   DDR_FB |= FB_MASK;
+
+  #ifdef ETH_EN
   mqttClient.setServer(mqttServerIp, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
   Ethernet.init(ETH_CS_PIN);
   SPI.begin();
-
   Ethernet.begin(mac, selfIp);
+  #endif
 
   #ifdef SERIAL_EN
     Serial.begin(SERIAL_BAUD);
@@ -287,6 +362,7 @@ void setup() {
 
   delay(1000);
 
+  #ifdef ETH_EN
   if (Ethernet.hardwareStatus() == EthernetHardwareStatus::EthernetNoHardware) {
     #ifdef SERIAL_EN
       Serial.println("W5500 not found.");
@@ -307,50 +383,92 @@ void setup() {
   }
 
   mqttReconnect();
+  #endif
 
   #ifdef WATCHDOG_EN
     watchdog.enable(Watchdog::TIMEOUT_4S);
   #endif
+
+  publishStatIn = 0xff;
+  publishStatGrp = 0xff;
 }
 
 void loop() {
   #ifdef WATCHDOG_EN
     watchdog.reset();
   #endif
-
+  #ifdef ETH_EN
   Ethernet.maintain();
 
+
   if (mqttClient.connected()) {
+  #endif
+    sens();
+
+    if (!publishStatIn){
+      if (millis() - lastStatInAt > STAT_IN_TIME){
+        publishStatIn = 0xff;
+      }
+    }
+
+    if (!publishStatGrp){
+      if (millis() - lastStatGrpAt > STAT_GRP_TIME){
+        publishStatGrp = 0xff;
+      }
+    }
 
     sens();
 
-    if (publishStatIn || (millis() - lastStatInAt > STAT_IN_TIME)){
+    if (publishStatIn){
+      #ifdef ETH_EN
       mqttClient.publish(PUB_STAT_IN, PORT_FB & B_FB_RLY_IN ? "open" : "closed");
+      #endif
+      #ifdef SERIAL_EN
+      Serial.print(PUB_STAT_IN);
+      Serial.println(PORT_FB & B_FB_RLY_IN ? ": open" : ": closed");
+      #endif
       lastStatInAt = millis();
       publishStatIn = 0x00;
-    } else if (publishStatGrp || (millis() - lastStatGrpAt > STAT_GRP_TIME)){
+    } else if (publishStatGrp){
+      #ifdef ETH_EN
       mqttClient.publish(PUB_STAT_GRP, PORT_FB & B_FB_RLY_GRP ? "open" : "closed");
+      #endif
+      #ifdef SERIAL_EN
+      Serial.print(PUB_STAT_GRP);
+      Serial.println(PORT_FB & B_FB_RLY_GRP ? ": open" : ": closed");
+      #endif
       lastStatGrpAt = millis();
       publishStatGrp = 0x00;
     } else if (millis() - lastPresenceAt > PRESENCE_TIME){
+      #ifdef ETH_EN
       mqttClient.publish(PUB_PRESENCE, "1");
+      #endif
+      #ifdef SERIAL_EN
+      Serial.print(PUB_PRESENCE);
+      Serial.println(": 1");
+      #endif
       lastPresenceAt = millis();
     }
 
     sens();
 
-    if (autoClose){
-      if ((autoClose & B_FB_RLY_IN) && (millis() - startAutoCloseInAt > autoCloseInTime)){
-        CLOSE_IN;
-      }
-      if ((autoClose & B_FB_RLY_GRP) && (millis() - startAutoCloseGrpAt > autoCloseGrpTime)){
-        CLOSE_GRP;
-      }
+    if (runAutoCloseIn && (millis() - startAutoCloseInAt > autoCloseInTime)){
+      CLOSE_IN;
+    }
+
+    if (runAutoCloseGrp && (millis() - startAutoCloseGrpAt > autoCloseGrpTime)){
+      CLOSE_GRP;
     }
 
     sens();
 
+    #ifdef SERIAL_EN
+      readCommandFromSerial();
+    #endif
+
+    #ifdef ETH_EN
     mqttClient.loop();
+
   } else {
 
     if (millis() - mqttLastReconnectAttemptAt > MQTT_CONNECT_RETRY_TIME) {
@@ -370,4 +488,5 @@ void loop() {
       }
     }
   }
+  #endif
 }
